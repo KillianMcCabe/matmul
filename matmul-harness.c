@@ -102,6 +102,8 @@ void check_result(double ** result, double ** control, int dim1, int dim2)
   if ( sum_abs_diff > EPSILON ) {
     fprintf(stderr, "WARNING: sum of absolute differences (%f) > EPSILON (%f)\n",
 	    sum_abs_diff, EPSILON);
+  } else {
+    printf("Result Correct!\n");
   }
 }
 
@@ -124,12 +126,34 @@ void matmul(double ** A, double ** B, double ** C, int a_dim1, int a_dim2, int b
 /* the fast version of matmul written by the team */
 void team_matmul(double ** A, double ** B, double ** C, int a_dim1, int a_dim2, int b_dim2)
 {
-printf("start matmul\n");
-  int i, j, k;
+  int work = a_dim1 * a_dim2;
 
+  if (work < 6500) {
+    matmul(A, B, C, a_dim1, a_dim2, b_dim2); // don't parrallel
+    return;
+  }
+  int i, j, k;
+  double sum;
+
+#pragma omp parallel for private(i, j, k, sum)
   for ( i = 0; i < a_dim1; i++ ) {
-    for( j = 0; j < b_dim2; j++ ) {
-      double sum = 0.0;
+    // don't put anopther parallel for here, one is better
+    for( j = 0; j < b_dim2-1; j+=1 ) { // loop unrolling
+      sum = 0.0;
+      for ( k = 0; k < a_dim2; k++ ) {
+        sum += A[i][k] * B[k][j];
+      }
+      C[i][j] = sum;
+
+      j += 1;
+      sum = 0.0;
+      for ( k = 0; k < a_dim2; k++ ) {
+        sum += A[i][k] * B[k][j];
+      }
+      C[i][j] = sum;
+    }
+    for(; j < b_dim2; j+=1 ) {
+      sum = 0.0;
       for ( k = 0; k < a_dim2; k++ ) {
         sum += A[i][k] * B[k][j];
       }
@@ -137,7 +161,42 @@ printf("start matmul\n");
     }
   }
 
-  printf("start matmul\n");
+}
+
+unsigned long upper_power_of_two(unsigned long v)
+{
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    return v;
+}
+
+void strassen(double ** A, double ** B, double ** C, int A_row, int A_col, int B_row, int B_col, int C_row, int C_col, int n)
+{
+  if (n == 1) {
+    C[C_row][C_col] = A[A_row][A_col] * B[B_row][B_col];
+    return;
+  }
+
+  int new_n = n/2;
+
+  double **M1, **M2, **M3, **M4, **M5, **M6, **M7;
+  M1 = new_empty_matrix(new_n, new_n);
+  M2 = new_empty_matrix(new_n, new_n);
+  M3 = new_empty_matrix(new_n, new_n);
+  M4 = new_empty_matrix(new_n, new_n);
+  M5 = new_empty_matrix(new_n, new_n);
+  M6 = new_empty_matrix(new_n, new_n);
+  M7 = new_empty_matrix(new_n, new_n);
+
+  // this is starting to look bad...
+
+
+
 }
 
 int main(int argc, char ** argv)
