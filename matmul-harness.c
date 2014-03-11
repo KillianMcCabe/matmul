@@ -124,9 +124,20 @@ void matmul(double ** A, double ** B, double ** C, int a_dim1, int a_dim2, int b
 /* the fast version of matmul written by the team */
 void team_matmul(double ** A, double ** B, double ** C, int a_dim1, int a_dim2, int b_dim2)
 {
-  // this call here is just dummy code
-  // insert your own code instead
-  matmul(A, B, C, a_dim1, a_dim2, b_dim2);
+printf("start matmul\n");
+  int i, j, k;
+
+  for ( i = 0; i < a_dim1; i++ ) {
+    for( j = 0; j < b_dim2; j++ ) {
+      double sum = 0.0;
+      for ( k = 0; k < a_dim2; k++ ) {
+        sum += A[i][k] * B[k][j];
+      }
+      C[i][j] = sum;
+    }
+  }
+
+  printf("start matmul\n");
 }
 
 int main(int argc, char ** argv)
@@ -165,8 +176,19 @@ int main(int argc, char ** argv)
 
   DEBUGGING(write_out(A, a_dim1, a_dim2));
 
+
+  /* record starting time */
+  gettimeofday(&start_time, NULL);
+
   /* use a simple matmul routine to produce control result */
   matmul(A, B, control_matrix, a_dim1, a_dim2, b_dim2);
+
+  /* record finishing time */
+  gettimeofday(&stop_time, NULL);
+  mul_time = (stop_time.tv_sec - start_time.tv_sec) * 1000000L +
+    (stop_time.tv_usec - start_time.tv_usec);
+  printf("Non-parrallel Matmul time: %lld microseconds\n", mul_time);
+
 
   /* record starting time */
   gettimeofday(&start_time, NULL);
