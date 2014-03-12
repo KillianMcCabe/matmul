@@ -101,7 +101,7 @@ void check_result(double ** result, double ** control, int dim1, int dim2)
 
   if ( sum_abs_diff > EPSILON ) {
     fprintf(stderr, "WARNING: sum of absolute differences (%f) > EPSILON (%f)\n",
-	    sum_abs_diff, EPSILON);
+      sum_abs_diff, EPSILON);
   } else {
     printf("Result Correct!\n");
   }
@@ -116,7 +116,7 @@ void matmul(double ** A, double ** B, double ** C, int a_dim1, int a_dim2, int b
     for( j = 0; j < b_dim2; j++ ) {
       double sum = 0.0;
       for ( k = 0; k < a_dim2; k++ ) {
-	sum += A[i][k] * B[k][j];
+  sum += A[i][k] * B[k][j];
       }
       C[i][j] = sum;
     }
@@ -175,16 +175,59 @@ unsigned long upper_power_of_two(unsigned long v)
     return v;
 }
 
-void strassen(double ** A, double ** B, double ** C, int A_row, int A_col, int B_row, int B_col, int C_row, int C_col, int n)
+void matadd(double ** A, double ** B, double ** C, int dim)
 {
+  int i,j;
+  for(i = 0; i < dim; i++)
+  {
+    for(j = 0; j < dim; j++)
+    {
+      C[i][j] = A[i][j] + B[i][j];
+    }
+  }
+}
+
+void matsub(double ** A, double ** B, double ** C, int dim)
+{
+  int i,j;
+  for(i = 0; i < dim; i++)
+  {
+    for(j = 0; j < dim; j++)
+    {
+      C[i][j] = A[i][j] - B[i][j];
+    }
+  }
+}
+
+void matquart(double ** A, double ** A11, double ** A12, double ** A21, double ** A22, int dim)
+{
+  int dim2 = dim / 2;
+  int i,j;
+  for(i = 0; i < dim2; i++)
+  {
+    for(j = 0; j < dim2; j++)
+    {
+      A11[i][j] = A[i][j];
+      A12[i][j] = A[i][j+dim2];
+      A21[i][j] = A[i+dim2][j];
+      A22[i][j] = A[i+dim2][j+dim2];
+    }
+  }
+
+}
+
+void strassen(double ** A, double ** B, double ** C, int n)
+{
+
+  // just testing whether to do ordinary stuff
   if (n == 1) {
-    C[C_row][C_col] = A[A_row][A_col] * B[B_row][B_col];
+    //C[C_row][C_col] = A[A_row][A_col] * B[B_row][B_col];
     return;
   }
 
   int new_n = n/2;
 
-  double **M1, **M2, **M3, **M4, **M5, **M6, **M7;
+  double **M1, **M2, **M3, **M4, **M5, **M6, **M7, **A11, **A12, **A21, **A22, **B11, **B12, **B21, **B22;
   M1 = new_empty_matrix(new_n, new_n);
   M2 = new_empty_matrix(new_n, new_n);
   M3 = new_empty_matrix(new_n, new_n);
@@ -195,7 +238,19 @@ void strassen(double ** A, double ** B, double ** C, int A_row, int A_col, int B
 
   // this is starting to look bad...
 
+  // but it's only going to get better!
 
+  A11 = new_empty_matrix(new_n, new_n);
+  A12 = new_empty_matrix(new_n, new_n);
+  A21 = new_empty_matrix(new_n, new_n);
+  A22 = new_empty_matrix(new_n, new_n);
+  B11 = new_empty_matrix(new_n, new_n);
+  B12 = new_empty_matrix(new_n, new_n);
+  B21 = new_empty_matrix(new_n, new_n);
+  B22 = new_empty_matrix(new_n, new_n);
+
+  matquart(A,A11,A12,A21,A22,n);
+  matquart(B,B11,B12,B21,B22,n);
 
 }
 
@@ -222,8 +277,8 @@ int main(int argc, char ** argv)
   /* check the matrix sizes are compatible */
   if ( a_dim2 != b_dim1 ) {
     fprintf(stderr,
-	    "FATAL number of columns of A (%d) does not match number of rows of B (%d)\n",
-	    a_dim2, b_dim1);
+      "FATAL number of columns of A (%d) does not match number of rows of B (%d)\n",
+      a_dim2, b_dim1);
     exit(1);
   }
 
