@@ -22,7 +22,7 @@ void write_out(double ** a, int dim1, int dim2)
 
   for ( i = 0; i < dim1; i++ ) {
     for ( j = 0; j < dim2 - 1; j++ ) {
-      printf("%f, ", a[i][j]);
+      printf("%f, ", a[i][j]); //change to f
     }
     printf("%f\n", a[i][dim2-1]);
   }
@@ -203,31 +203,54 @@ void matquart(double ** A, double ** A11, double ** A12, double ** A21, double *
 {
   int dim2 = dim / 2;
   int i,j;
-  for(i = 0; i < dim2; i++)
-  {
-    for(j = 0; j < dim2; j++)
+  #pragma omp parallel for private(i, j)
+    for(i = 0; i < dim2; i++)
     {
-      A11[i][j] = A[i][j];
-      A12[i][j] = A[i][j+dim2];
-      A21[i][j] = A[i+dim2][j];
-      A22[i][j] = A[i+dim2][j+dim2];
+      for(j = 0; j < dim2; j++)
+      {
+        A11[i][j] = A[i][j];
+        A12[i][j] = A[i][j+dim2];
+        A21[i][j] = A[i+dim2][j];
+        A22[i][j] = A[i+dim2][j+dim2];
+      }
     }
-  }
 
 }
 
+void matunquart(double ** A, double ** A11, double ** A12, double ** A21, double ** A22, int dim)
+{
+  int dim2 = dim / 2;
+  int i,j;
+  #pragma omp parallel for private(i, j)
+    for(i = 0; i < dim2; i++)
+    {
+      for(j = 0; j < dim2; j++)
+      {
+        A[i][j]           = A11[i][j];
+        A[i][j+dim2]      = A12[i][j];
+        A[i+dim2][j]      = A21[i][j];
+        A[i+dim2][j+dim2] = A22[i][j];
+      }
+    }
+
+}
 void strassen(double ** A, double ** B, double ** C, int n)
 {
-
+  fflush(stdout);
   // just testing whether to do ordinary stuff
-  if (n == 1) {
-    //C[C_row][C_col] = A[A_row][A_col] * B[B_row][B_col];
+  if (n <= 1024) {
+    team_matmul(A,B,C,n,n,n);
     return;
   }
 
   int new_n = n/2;
 
-  double **M1, **M2, **M3, **M4, **M5, **M6, **M7, **A11, **A12, **A21, **A22, **B11, **B12, **B21, **B22;
+  double **M1, **M2, **M3, **M4, **M5, **M6, **M7, 
+  **A11, **A12, **A21, **A22, **B11, **B12, **B21, 
+  **B22, **C11, **C12, **C21, **C22;
+
+  double **temp1, **temp2, **temp3, **temp4, **temp5
+  , **temp6, **temp7, **temp8, **temp9, **temp10, **temp11, **temp12;
   M1 = new_empty_matrix(new_n, new_n);
   M2 = new_empty_matrix(new_n, new_n);
   M3 = new_empty_matrix(new_n, new_n);
@@ -249,8 +272,118 @@ void strassen(double ** A, double ** B, double ** C, int n)
   B21 = new_empty_matrix(new_n, new_n);
   B22 = new_empty_matrix(new_n, new_n);
 
+
   matquart(A,A11,A12,A21,A22,n);
+
+
+  
   matquart(B,B11,B12,B21,B22,n);
+
+  fflush(stdout);
+
+  #pragma omp parallel sections
+  {
+    #pragma omp section
+    {
+      temp1 = new_empty_matrix(new_n, new_n);
+      temp2 = new_empty_matrix(new_n, new_n);
+      matadd(A11, A22, temp1, new_n);
+      matadd(B11, B22, temp2, new_n);
+      strassen(temp1, temp2, M1, new_n);
+      free(temp1);
+      free(temp2);
+    }
+
+    #pragma omp section
+    {    
+      temp3 = new_empty_matrix(new_n, new_n);
+      temp4 = new_empty_matrix(new_n, new_n);
+      matadd(A21, A22, temp3, new_n);
+      strassen(temp3, B11, M2, new_n);
+      free(temp3);
+    }
+
+    #pragma omp section
+    {
+      temp4 = new_empty_matrix(new_n, new_n);
+      matsub(B12, B22, temp4, new_n);
+      strassen(A11, temp4, M3, new_n);
+      free(temp4);
+    }
+
+    #pragma omp section
+    {
+      temp5 = new_empty_matrix(new_n, new_n);
+      matsub(B21, B11, temp5, new_n);
+      strassen(A22, temp5, M4, new_n);
+      free(temp5);
+    }
+
+    #pragma omp section
+    {
+      temp6 = new_empty_matrix(new_n, new_n);
+      matadd(A11, A12, temp6, new_n);
+      strassen(B22, temp6, M5, new_n);
+      free(temp6);
+    }
+
+    #pragma omp section
+    {
+      temp7 = new_empty_matrix(new_n, new_n);
+      temp8 = new_empty_matrix(new_n, new_n);
+      matsub(A21, A11, temp7, new_n);
+      matadd(B11, B12, temp8, new_n);
+      strassen(temp7, temp8, M6, new_n);
+      free(temp7);
+      free(temp8);
+    }
+
+    #pragma omp section
+    {
+      temp9 = new_empty_matrix(new_n, new_n);
+      temp10 = new_empty_matrix(new_n, new_n);
+      matsub(A12, A22, temp9, new_n);
+      matadd(B21, B22, temp10, new_n);
+      strassen(temp9, temp10, M7, new_n);
+      free(temp9);
+      free(temp10);
+    }
+
+  }
+
+
+  temp11 = new_empty_matrix(new_n, new_n);
+  temp12 = new_empty_matrix(new_n, new_n);
+
+
+
+  C11 = new_empty_matrix(new_n, new_n);
+  C12 = new_empty_matrix(new_n, new_n);
+  C21 = new_empty_matrix(new_n, new_n);
+  C22 = new_empty_matrix(new_n, new_n);
+
+  matadd(M1, M4, temp11, new_n);
+  matsub(temp11, M5, temp12, new_n);
+  matadd(temp12, M7, C11, new_n);
+
+
+
+  matadd(M3, M5, C12, new_n);
+
+  matadd(M2, M4, C21, new_n);
+
+  matsub(M1, M2, temp11, new_n);
+  matadd(temp11, M3, temp12, new_n);
+  matadd(temp12, M6, C22, new_n);
+
+  free(temp11);
+  free(temp12);
+
+  matunquart(C,C11,C12,C21,C22,n);
+  free(C11);
+  free(C12);
+  free(C21);
+  free(C22);
 
 }
 
@@ -308,7 +441,8 @@ int main(int argc, char ** argv)
   gettimeofday(&start_time, NULL);
 
   /* perform matrix multiplication */
-  team_matmul(A, B, C, a_dim1, a_dim2, b_dim2);
+  //team_matmul(A, B, C, a_dim1, a_dim2, b_dim2);
+  strassen(A,B,C, a_dim1);
 
   /* record finishing time */
   gettimeofday(&stop_time, NULL);
